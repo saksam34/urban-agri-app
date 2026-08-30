@@ -1,881 +1,557 @@
-import React, { useState, useMemo } from "react";
+import React, { useState } from 'react';
+import { 
+  Search, Camera, ShieldCheck, MapPin, Phone, 
+  User, PlusCircle, MessageSquare, Send, CheckCircle2, 
+  Globe, Sparkles, ShoppingBag, ArrowRight, Wallet, Flame, 
+  Menu, X, Star, Heart, Mic, RefreshCw, TrendingUp,
+  CreditCard, Sprout, AlertCircle, Check, DollarSign
+} from 'lucide-react';
 
-// ==========================================
-// MASTER MOCK DATABASE (Aggregated B2B Agri)
-// ==========================================
+type Tab = 'all' | 'crops' | 'f2f-seeds' | 'rentals' | 'b2b' | 'mandi' | 'ai-doctor';
+type Language = 'en' | 'hi' | 'pb';
 
-const INDIAN_STATES = [
-  "Madhya Pradesh",
-  "Maharashtra",
-  "Punjab",
-  "Rajasthan",
-  "Uttar Pradesh",
-  "Gujarat"
-];
+interface Listing {
+  id: string;
+  title: string;
+  type: 'crop' | 'seed' | 'rental' | 'b2b';
+  category: string;
+  price: number;
+  unit: string;
+  city: string;
+  state: string;
+  location: string;
+  sellerName: string;
+  sellerRating: number;
+  phone: string;
+  image: string;
+  aiVerified: boolean;
+  isFarmerDirect?: boolean;
+  minOrder?: string;
+  rentalSlot?: string;
+  sourceApp?: 'KisanSetu' | 'MandiNet';
+}
 
-const MP_CITIES = [
-  "All MP Cities", "Indore", "Bhopal", "Ujjain", "Gwalior", 
-  "Jabalpur", "Mandsaur", "Dhar", "Sehore", "Hoshangabad", "Dewas"
-];
+export default function App() {
+  const [lang, setLang] = useState<Language>('hi');
+  const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [wishlist, setWishlist] = useState<string[]>([]);
+  
+  // Checkout & Payment Modals
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment' | 'success'>('cart');
+  const [paymentMethod, setPaymentMethod] = useState<'upi' | 'card' | 'cod' | 'escrow'>('upi');
 
-const MASTER_PRODUCTS = [
-  {
-    id: "p1",
-    name: "FRESH DESI TOMATOES (A-GRADE)",
-    category: "CROP_MARKET",
-    type: "Vegetables",
-    variety: "Desi Hybrid Red",
-    price: 26,
-    unit: "kg",
-    minOrder: "100 kg",
-    state: "Madhya Pradesh",
-    city: "Bhopal",
-    location: "Karond Mandi Road, Bhopal",
-    sellerName: "Sharma Vegetable Farm",
-    sellerPhone: "+91 98270 33441",
-    sellerRating: 4.7,
-    verified: true,
-    source: "MandiNet",
-    image: "https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=500"
-  },
-  {
-    id: "p2",
-    name: "ORGANIC POTATO (JYOTI VARIETY)",
-    category: "CROP_MARKET",
-    type: "Vegetables",
-    variety: "Jyoti (High Starch)",
-    price: 18,
-    unit: "kg",
-    minOrder: "500 kg",
-    state: "Madhya Pradesh",
-    city: "Indore",
-    location: "Rau Bypass Agro Zone, Indore",
-    sellerName: "Rau Cold Storage B2B",
-    sellerPhone: "+91 98261 99887",
-    sellerRating: 4.5,
-    verified: true,
-    source: "MandiNet",
-    image: "https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=500"
-  },
-  {
-    id: "p3",
-    name: "DESI GARLIC BATCH (MANDSAUR)",
-    category: "CROP_MARKET",
-    type: "Vegetables",
-    variety: "Riyawan Grade-1",
-    price: 110,
-    unit: "kg",
-    minOrder: "50 kg",
-    state: "Madhya Pradesh",
-    city: "Mandsaur",
-    location: "Main APMC Yard, Mandsaur",
-    sellerName: "Mandsaur Wholesale Trade",
-    sellerPhone: "+91 94240 12345",
-    sellerRating: 4.8,
-    verified: true,
-    source: "KisanSetu",
-    image: "https://images.unsplash.com/photo-1615485290382-441e4d049cb5?w=500"
-  },
-  {
-    id: "p4",
-    name: "HYBRID SHARBATI WHEAT SEEDS",
-    category: "HYBRID_SEEDS",
-    type: "Grains",
-    variety: "Sharbati C23 Certified",
-    price: 3200,
-    unit: "Quintal",
-    minOrder: "5 Quintals",
-    state: "Madhya Pradesh",
-    city: "Sehore",
-    location: "Ashta Road, Sehore",
-    sellerName: "Sehore Certified Seeds Corp",
-    sellerPhone: "+91 98265 44332",
-    sellerRating: 4.9,
-    verified: true,
-    source: "KisanSetu",
-    image: "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=500"
-  },
-  {
-    id: "p5",
-    name: "EXOTIC BROCCOLI (CRATE PACKING)",
-    category: "CROP_MARKET",
-    type: "Exotic",
-    variety: "Green Magic Premium",
-    price: 75,
-    unit: "kg",
-    minOrder: "30 kg",
-    state: "Madhya Pradesh",
-    city: "Ujjain",
-    location: "Dewas Road Hydroponics Hub, Ujjain",
-    sellerName: "Ujjain Hydroponic Farm",
-    sellerPhone: "+91 97521 88990",
-    sellerRating: 4.6,
-    verified: true,
-    source: "KisanSetu",
-    image: "https://images.unsplash.com/photo-1459411621453-7b03977f4bfc?w=500"
-  }
-];
+  // Sell/Rent Modal
+  const [sellModalOpen, setSellModalOpen] = useState(false);
 
-const MACHINERY_RENTALS_DATA = [
-  {
-    id: "m1",
-    name: "John Deere Harvester (AC Cab, Heavy Duty)",
-    rate: 1200,
-    unit: "hour",
-    city: "Indore",
-    location: "Sanwer Industrial Area, Indore",
-    sellerName: "Malwa Heavy Machinery Hire",
-    sellerPhone: "+91 98260 77889",
-    verified: true,
-    slots: ["07:00 AM - 11:00 AM", "11:30 AM - 03:30 PM", "04:00 PM - 08:00 PM"],
-    image: "https://images.unsplash.com/photo-1592982537447-7440770cbfc9?w=500"
-  },
-  {
-    id: "m2",
-    name: "Mahindra 575 DI Tractor + Automatic Seed Drill",
-    rate: 550,
-    unit: "hour",
-    city: "Bhopal",
-    location: "Bairagarh Farms, Bhopal",
-    sellerName: "Kareli Krishi Yantra Hire",
-    sellerPhone: "+91 94251 33445",
-    verified: true,
-    slots: ["06:00 AM - 10:00 AM", "10:30 AM - 02:30 PM", "03:00 PM - 07:00 PM"],
-    image: "https://images.unsplash.com/photo-1530267981375-f0de937f5f13?w=500"
-  },
-  {
-    id: "m3",
-    name: "Agri Fertilizer Spraying Drone (16L Tank)",
-    rate: 1500,
-    unit: "acre",
-    city: "Dhar",
-    location: "Pithampur Agro Tech Park, Dhar",
-    sellerName: "Dhar AeroAgri Drone Services",
-    sellerPhone: "+91 99810 44556",
-    verified: true,
-    slots: ["06:00 AM - 09:00 AM", "04:00 PM - 07:00 PM"],
-    image: "https://images.unsplash.com/photo-1508614589041-895b88991e3e?w=500"
-  }
-];
+  // AI Doctor & Scan State
+  const [aiDoctorModal, setAiDoctorModal] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [doctorDiagnosis, setDoctorDiagnosis] = useState<null | {
+    disease: string;
+    confidence: string;
+    symptoms: string;
+    chemicalTreatment: string;
+    organicTreatment: string;
+    fertilizerAdvice: string;
+  }>(null);
 
-const ORGANIC_KHAD_DATA = [
-  {
-    id: "k1",
-    name: "Earthworm Vermicompost (Kechua Khad)",
-    packaging: "50 kg Bag",
-    bagPrice: 350,
-    tonPrice: 6000,
-    city: "Indore",
-    location: "Bicholi Mardana Bio Organics, Indore",
-    sellerName: "BioAgri Organic Solutions",
-    sellerPhone: "+91 98262 33221",
-    verified: true
-  },
-  {
-    id: "k2",
-    name: "Neem Cake Organic Fertilizer (Nimboli Khad)",
-    packaging: "40 kg Bag",
-    bagPrice: 640,
-    tonPrice: 14500,
-    city: "Hoshangabad",
-    location: "Itarsi Road Organics, Hoshangabad",
-    sellerName: "Narmada Bio-Fertilizers",
-    sellerPhone: "+91 94254 77881",
-    verified: true
-  },
-  {
-    id: "k3",
-    name: "Decomposed Cow Dung Manure (Gobar Khad)",
-    packaging: "1 Trolley Load (~2.5 Tons)",
-    bagPrice: 2800,
-    tonPrice: 1100,
-    city: "Dewas",
-    location: "Bypass Gaushala Complex, Dewas",
-    sellerName: "Shree Ram Gaushala Organic",
-    sellerPhone: "+91 98932 66554",
-    verified: true
-  }
-];
+  // AI Chat Assistant State
+  const [chatModalOpen, setChatModalOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: 'user' | 'ai'; text: string }>>([
+    { sender: 'ai', text: 'Namaste! Main Aapka KisanSetu AI Doctor & Agri Expert hoon. Fasal ki bimari, fertilizer dose ya mandi rate ke bare mein kuch bhi poochhein.' }
+  ]);
+  const [currentInput, setCurrentInput] = useState('');
 
-const ALL_INDIA_MANDIS = [
-  {
-    state: "Madhya Pradesh",
-    mandis: [
-      {
-        name: "Indore APMC Mandi (Khadauti)",
-        district: "Indore",
-        rates: [
-          { crop: "Wheat (Sharbati)", category: "Crops", rate: "₹3,150 / Qtl", change: "+₹30", trend: "up" },
-          { crop: "Tomato (Desi Red)", category: "Vegetables", rate: "₹2,200 / Qtl", change: "-₹40", trend: "down" },
-          { crop: "Potato (Jyoti)", category: "Vegetables", rate: "₹1,600 / Qtl", change: "+₹10", trend: "up" }
-        ]
-      },
-      {
-        name: "Karond Mandi",
-        district: "Bhopal",
-        rates: [
-          { crop: "Soybean (Yellow)", category: "Crops", rate: "₹4,450 / Qtl", change: "+₹15", trend: "up" },
-          { crop: "Garlic (Desi)", category: "Vegetables", rate: "₹11,800 / Qtl", change: "+₹200", trend: "up" }
-        ]
-      },
-      {
-        name: "Mandsaur Grain & Veg APMC",
-        district: "Mandsaur",
-        rates: [
-          { crop: "Garlic (Riyawan Grade-1)", category: "Vegetables", rate: "₹14,200 / Qtl", change: "+₹350", trend: "up" },
-          { crop: "Onion (Red)", category: "Vegetables", rate: "₹1,850 / Qtl", change: "-₹20", trend: "down" }
-        ]
-      }
-    ]
-  },
-  {
-    state: "Maharashtra",
-    mandis: [
-      {
-        name: "Lasalgaon APMC Market",
-        district: "Nashik",
-        rates: [
-          { crop: "Onion (Red Export Quality)", category: "Vegetables", rate: "₹2,100 / Qtl", change: "+₹50", trend: "up" },
-          { crop: "Pomegranate (Bhagwa)", category: "Fruit Crop", rate: "₹8,500 / Qtl", change: "+₹120", trend: "up" }
-        ]
-      },
-      {
-        name: "Vashi Wholesale Market",
-        district: "Mumbai",
-        rates: [
-          { crop: "Green Chilies (Jwala)", category: "Vegetables", rate: "₹4,200 / Qtl", change: "-₹80", trend: "down" }
-        ]
-      }
-    ]
-  },
-  {
-    state: "Punjab",
-    mandis: [
-      {
-        name: "Khanna Grain Market",
-        district: "Ludhiana",
-        rates: [
-          { crop: "Paddy Rice (Basmati 1121)", category: "Crops", rate: "₹4,350 / Qtl", change: "+₹45", trend: "up" },
-          { crop: "Wheat (PBW 550)", category: "Crops", rate: "₹2,275 / Qtl", change: "₹0", trend: "stable" }
-        ]
-      }
-    ]
-  },
-  {
-    state: "Rajasthan",
-    mandis: [
-      {
-        name: "Kota Krishi Upaj Mandi",
-        district: "Kota",
-        rates: [
-          { crop: "Coriander (Dhaniya)", category: "Crops", rate: "₹7,200 / Qtl", change: "+₹110", trend: "up" },
-          { crop: "Mustard (Sarson)", category: "Crops", rate: "₹5,350 / Qtl", change: "-₹30", trend: "down" }
-        ]
-      }
-    ]
-  }
-];
+  // Extended Database with Farmer-to-Farmer Seeds & Equipment Rentals
+  const [listings] = useState<Listing[]>([
+    { id: '1', title: 'A-Grade Hybrid Wheat Seed (Lok-1 Desi)', type: 'seed', category: 'F2F Seed', price: 35, unit: 'kg', city: 'Indore', state: 'MP', location: 'Indore Mandi Zone', sellerName: 'Patel Organic Farms', sellerRating: 4.8, phone: '+91 9876543210', image: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80', aiVerified: true, isFarmerDirect: true, sourceApp: 'KisanSetu' },
+    { id: '2', title: 'Fresh Desi Red Tomatoes (A-Grade)', type: 'crop', category: 'Vegetable', price: 26, unit: 'kg', city: 'Bhopal', state: 'MP', location: 'Karond Mandi, Bhopal', sellerName: 'Vikram Singh', sellerRating: 4.7, phone: '+91 9988776655', image: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&w=600&q=80', aiVerified: true, minOrder: '100 kg', sourceApp: 'MandiNet' },
+    { id: '3', title: 'Mahindra 575 DI Harvester Rental (Slot: 2PM-6PM)', type: 'rental', category: 'Machinery', price: 1100, unit: 'hr', city: 'Ujjain', state: 'MP', location: 'Dewas Bypass Hub', sellerName: 'Suresh Verma', sellerRating: 4.9, phone: '+91 9826012345', image: 'https://images.unsplash.com/photo-1530267981375-f0de937f5f13?auto=format&fit=crop&w=600&q=80', aiVerified: true, rentalSlot: 'Immediate Slot Available', sourceApp: 'KisanSetu' },
+    { id: '4', title: 'Organic Potato (Jyoti Variety)', type: 'crop', category: 'Vegetable', price: 18, unit: 'kg', city: 'Indore', state: 'MP', location: 'Rau Bypass Cold Storage', sellerName: 'Rau Agro Store', sellerRating: 4.5, phone: '+91 9425098765', image: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?auto=format&fit=crop&w=600&q=80', aiVerified: false, minOrder: '500 kg', sourceApp: 'MandiNet' },
+    { id: '5', title: 'Farmer Direct Soyabean Seed (JS 9560)', type: 'seed', category: 'F2F Seed', price: 72, unit: 'kg', city: 'Dhar', state: 'MP', location: 'Badnawar Village', sellerName: 'Kailash Choudhary', sellerRating: 4.9, phone: '+91 9893011223', image: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?auto=format&fit=crop&w=600&q=80', aiVerified: true, isFarmerDirect: true, sourceApp: 'KisanSetu' },
+    { id: '6', title: 'Organic Vermicompost Khad (NPK Rich)', type: 'b2b', category: 'Fertilizer', price: 8, unit: 'kg', city: 'Gwalior', state: 'MP', location: 'Industrial Area', sellerName: 'BioAgri Tech', sellerRating: 4.6, phone: '+91 9111223344', image: 'https://images.unsplash.com/photo-1628352081506-83c43123ed6d?auto=format&fit=crop&w=600&q=80', aiVerified: true, minOrder: '1000 kg', sourceApp: 'KisanSetu' }
+  ]);
 
-const B2B_WHOLESALE_DIRECTORY = [
-  { name: "Malwa Fresh Bulk Supplies", owner: "Rajesh Patidar", phone: "+91 98260 11223", city: "Indore", target: "Hotels, Canteens & Cloud Kitchens", minQty: "50 kg" },
-  { name: "Narmada Agro Processing Units", owner: "Suresh Sharma", phone: "+91 94250 88771", city: "Hoshangabad", target: "Potato Chip Factories & Processing", minQty: "1,000 kg" },
-  { name: "Mahakaal Organic Hub", owner: "Virendra Singh", phone: "+91 97520 44332", city: "Ujjain", target: "Wholesale Mandi Traders", minQty: "100 kg" },
-  { name: "Mandsaur Garlic Exporters", owner: "Dinesh Dhakad", phone: "+91 94240 12345", city: "Mandsaur", target: "Exporters & Processing Plants", minQty: "500 kg" }
-];
+  const mandiTicker = [
+    { name: 'Indore APMC', commodity: 'Gehu (Lok-1)', rate: '₹2,850/Q', change: '+₹20' },
+    { name: 'Karond Bhopal', commodity: 'Tomato', rate: '₹2,600/Q', change: '-₹40' },
+    { name: 'Ujjain Mandi', commodity: 'Soybean', rate: '₹4,310/Q', change: '+₹15' },
+    { name: 'Mandsaur', commodity: 'Garlic', rate: '₹11,000/Q', change: '+₹150' },
+  ];
 
-// ==========================================
-// MAIN REACT APPLICATION COMPONENT
-// ==========================================
+  const [cart, setCart] = useState<Listing[]>([listings[0], listings[2]]);
 
-export default function UrbanAgriMasterApp() {
-  // Navigation & Filter States
-  const [activeTab, setActiveTab] = useState("CROP_MARKET");
-  const [selectedCity, setSelectedCity] = useState("All MP Cities");
-  const [globalSearch, setGlobalSearch] = useState("");
+  const toggleWishlist = (id: string) => {
+    setWishlist(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
-  // All-India Mandi Specific States
-  const [mandiState, setMandiState] = useState("Madhya Pradesh");
-  const [mandiSearchQuery, setMandiSearchQuery] = useState("");
+  const handleSendMessage = () => {
+    if (!currentInput.trim()) return;
+    const userMsg = currentInput;
+    setChatMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    setCurrentInput('');
 
-  // Commerce & Cart State
-  const [productsList, setProductsList] = useState(MASTER_PRODUCTS);
-  const [cart, setCart] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("UPI");
+    setTimeout(() => {
+      let reply = `Aapke sawaal "${userMsg}" ke hisab se: Kheti mein NPK 19:19:19 ka spray early growth stage par sabse best hota hai. Mandi mein rates filhal stable hain.`;
+      setChatMessages(prev => [...prev, { sender: 'ai', text: reply }]);
+    }, 800);
+  };
 
-  // Rental Slot Modal State
-  const [selectedRentalMachine, setSelectedRentalMachine] = useState(null);
-  const [chosenSlot, setChosenSlot] = useState("");
+  const startPlantDoctorDiagnosis = () => {
+    setIsScanning(true);
+    setDoctorDiagnosis(null);
+    setTimeout(() => {
+      setIsScanning(false);
+      setDoctorDiagnosis({
+        disease: 'Yellow Leaf Curl Virus & Nitrogen Deficiency',
+        confidence: '96.4% Accuracy',
+        symptoms: 'Patto ka peela padna aur edges ka curl hona.',
+        chemicalTreatment: 'Imidacloprid 17.8% SL @ 0.5ml/L water spray karein.',
+        organicTreatment: 'Neem oil (10,000 PPM) 3ml/L water + Vermicompost khad dalein.',
+        fertilizerAdvice: 'Urea @ 45kg/acre ki dose 3 din ke andar pani ke saath dein.'
+      });
+    }, 2500);
+  };
 
-  // New Listing Form Popup State
-  const [isSellModalOpen, setIsSellModalOpen] = useState(false);
-  const [newListing, setNewListing] = useState({
-    name: "", category: "CROP_MARKET", price: "", unit: "kg", city: "Indore", sellerName: "", sellerPhone: "", image: ""
+  const filteredListings = listings.filter(item => {
+    const matchesSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || item.city.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!matchesSearch) return false;
+    if (activeTab === 'crops') return item.type === 'crop';
+    if (activeTab === 'f2f-seeds') return item.type === 'seed' && item.isFarmerDirect;
+    if (activeTab === 'rentals') return item.type === 'rental';
+    if (activeTab === 'b2b') return item.type === 'b2b';
+    return true;
   });
 
-  // Filtered Products Logic
-  const filteredProducts = useMemo(() => {
-    return productsList.filter((item) => {
-      const matchTab = activeTab === "ALL" || item.category === activeTab;
-      const matchCity = selectedCity === "All MP Cities" || item.city === selectedCity;
-      const matchQuery = item.name.toLowerCase().includes(globalSearch.toLowerCase()) ||
-                         item.sellerName.toLowerCase().includes(globalSearch.toLowerCase());
-      return matchTab && matchCity && matchQuery;
-    });
-  }, [productsList, activeTab, selectedCity, globalSearch]);
-
-  // Cart Functions
-  const addToCart = (product) => {
-    setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      if (existing) {
-        return prev.map((item) => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
-      }
-      return [...prev, { ...product, qty: 1 }];
-    });
-  };
-
-  const removeFromCart = (id) => {
-    setCart((prev) => prev.filter((item) => item.id !== id));
-  };
-
-  const cartTotal = useMemo(() => {
-    return cart.reduce((total, item) => total + (item.price * item.qty), 0);
-  }, [cart]);
-
-  // Handle New Listing Submission
-  const handleCreateListing = (e) => {
-    e.preventDefault();
-    if (!newListing.name || !newListing.price || !newListing.sellerPhone) {
-      alert("Kripya saari zaruri details bharein!");
-      return;
-    }
-    const created = {
-      ...newListing,
-      id: "custom_" + Date.now(),
-      price: Number(newListing.price),
-      sellerRating: 5.0,
-      verified: true,
-      source: "KisanSetu Direct",
-      minOrder: "10 kg",
-      image: newListing.image || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500"
-    };
-    setProductsList([created, ...productsList]);
-    setIsSellModalOpen(false);
-    setNewListing({ name: "", category: "CROP_MARKET", price: "", unit: "kg", city: "Indore", sellerName: "", sellerPhone: "", image: "" });
-    alert("Aapka Produce/Machine Live Market Feed mein list ho gaya hai!");
-  };
-
   return (
-    <div style={{ fontFamily: "'Inter', sans-serif", backgroundColor: "#f3f4f6", minHeight: "100vh", color: "#111827" }}>
+    <div style={{ fontFamily: 'Inter, system-ui, sans-serif' }} className="min-h-screen bg-slate-100 text-slate-900 pb-20 w-full overflow-x-hidden">
       
-      {/* 1. TOP HEADER & NAVIGATION BAR */}
-      <header style={{ backgroundColor: "#14281d", color: "#fff", position: "sticky", top: 0, zIndex: 100 }}>
-        {/* Top Info Strip */}
-        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "6px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "12px", borderBottom: "1px solid #234230" }}>
-          <span>✨ Live MP Agri Data Hub | OLX & Local Mandi Aggregated</span>
-          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
-            <span>📍 State: <strong>Madhya Pradesh (All)</strong></span>
-            <span>City: 
-              <select 
-                value={selectedCity} 
-                onChange={(e) => setSelectedCity(e.target.value)}
-                style={{ backgroundColor: "transparent", color: "#22c55e", border: "none", marginLeft: "4px", fontWeight: "bold", cursor: "pointer" }}
-              >
-                {MP_CITIES.map((c) => <option key={c} value={c} style={{ color: "#000" }}>{c}</option>)}
-              </select>
-            </span>
-            <span style={{ cursor: "pointer" }}>🌐 हिंदी / ENG</span>
+      {/* ================= 1. HEADER & TOP TICKER (AMAZON / MYNTRA FULL-WIDTH STYLE) ================= */}
+      <header className="bg-slate-950 text-white sticky top-0 z-50 w-full border-b border-slate-800 shadow-md">
+        
+        {/* Mandi Live Rate Ticker */}
+        <div className="bg-emerald-700 text-white text-[11px] font-bold px-4 lg:px-10 py-1 flex justify-between items-center whitespace-nowrap overflow-x-auto">
+          <div className="flex items-center space-x-6">
+            <span className="flex items-center gap-1.5"><Sparkles size={13} /> Govt Sync Live Mandi Rates</span>
+            <div className="hidden md:flex space-x-4 border-l border-emerald-500 pl-4">
+              {mandiTicker.map((m, idx) => (
+                <span key={idx} className="text-[10px]">
+                  {m.name}: <b className="text-amber-200">{m.rate}</b> <span className={m.change.includes('+') ? 'text-emerald-200' : 'text-rose-200'}>({m.change})</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <span className="text-[10px]">State: <b className="text-emerald-200">Madhya Pradesh</b></span>
+            <select value={lang} onChange={(e) => setLang(e.target.value as Language)} className="bg-emerald-800 text-white text-[10px] rounded px-1 py-0.5 border-none outline-none">
+              <option value="hi">हिंदी</option>
+              <option value="en">English</option>
+              <option value="pb">ਪੰਜਾਬੀ</option>
+            </select>
           </div>
         </div>
 
-        {/* Brand & Search Bar Section */}
-        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "14px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "20px" }}>
-          <h1 
-            onClick={() => setActiveTab("CROP_MARKET")}
-            style={{ margin: 0, fontSize: "24px", letterSpacing: "1px", cursor: "pointer", fontWeight: "900" }}
-          >
-            URBAN<span style={{ color: "#22c55e" }}>AGRI</span>
-          </h1>
+        {/* Main Nav Bar */}
+        <div className="w-full px-4 lg:px-10 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setMobileMenuOpen(true)} className="lg:hidden text-white"><Menu size={24} /></button>
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => setActiveTab('all')}>
+              <span className="text-2xl font-black tracking-tighter uppercase italic text-white">URBAN<span className="text-emerald-400">AGRI</span></span>
+            </div>
+          </div>
 
-          {/* Search Box */}
-          <div style={{ flex: 1, maxWidth: "550px", position: "relative" }}>
-            <input 
-              type="text" 
-              placeholder="Search Indore/Bhopal sellers, crops, seeds, harvester..."
-              value={globalSearch}
-              onChange={(e) => setGlobalSearch(e.target.value)}
-              style={{ width: "100%", padding: "10px 16px 10px 38px", borderRadius: "20px", border: "none", fontSize: "13px", outline: "none", backgroundColor: "#fff", color: "#000" }}
+          {/* Search Bar */}
+          <div className="flex-1 max-w-3xl relative mx-2">
+            <Search className="absolute left-4 top-2.5 text-slate-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search Indore/Bhopal sellers, crops, seeds, diseases..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-11 pr-10 py-2 bg-slate-900 border border-slate-700 text-white placeholder-slate-400 text-xs font-medium rounded-full focus:outline-none focus:border-emerald-400"
             />
-            <span style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)", color: "#6b7280" }}>🔍</span>
+            <Mic size={16} onClick={() => setChatModalOpen(true)} className="absolute right-3.5 top-2.5 text-emerald-400 cursor-pointer hover:scale-110 transition" />
           </div>
 
-          {/* Quick Actions */}
-          <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+          {/* Header Action Triggers */}
+          <div className="flex items-center space-x-4">
             <button 
-              onClick={() => setIsSellModalOpen(true)}
-              style={{ backgroundColor: "#22c55e", color: "#000", border: "none", padding: "8px 16px", borderRadius: "20px", fontWeight: "bold", fontSize: "12px", cursor: "pointer" }}
+              onClick={() => setAiDoctorModal(true)} 
+              className="hidden sm:flex bg-emerald-500/10 border border-emerald-400 text-emerald-400 hover:bg-emerald-400 hover:text-black font-extrabold px-3 py-1.5 rounded-full text-xs items-center gap-1.5 transition"
             >
-              ⊕ SELL / RENT
+              <Sprout size={15} /> AI Doctor
             </button>
+
             <button 
-              onClick={() => setIsCartOpen(true)}
-              style={{ backgroundColor: "#234230", border: "1px solid #22c55e", color: "#fff", padding: "8px 14px", borderRadius: "20px", cursor: "pointer", fontSize: "13px", display: "flex", alignItems: "center", gap: "6px" }}
+              onClick={() => setSellModalOpen(true)}
+              className="bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold px-4 py-2 rounded-full text-xs flex items-center gap-1.5 shadow-md transition"
             >
-              🛒 Cart <span style={{ backgroundColor: "#22c55e", color: "#000", padding: "2px 6px", borderRadius: "10px", fontSize: "11px", fontWeight: "bold" }}>{cart.length}</span>
+              <PlusCircle size={15} /> SELL / RENT
             </button>
+
+            <div onClick={() => setCartModalOpen(true)} className="relative cursor-pointer text-slate-300 hover:text-white">
+              <ShoppingBag size={22} />
+              {cart.length > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-black text-[9px] font-black rounded-full w-4 h-4 flex items-center justify-center">
+                  {cart.length}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* Main Navigation Tabs */}
-        <div style={{ maxWidth: "1280px", margin: "0 auto", padding: "0 16px", display: "flex", gap: "24px", fontSize: "13px", fontWeight: "600", overflowX: "auto" }}>
+        {/* Categories Bar */}
+        <div className="hidden lg:flex w-full px-10 bg-slate-900 text-slate-300 py-2.5 overflow-x-auto space-x-8 text-xs font-bold border-t border-slate-800 uppercase tracking-wider justify-center">
           {[
-            { id: "ALL", label: "ALL ESSENTIALS" },
-            { id: "CROP_MARKET", label: "CROP MARKET" },
-            { id: "HYBRID_SEEDS", label: "HYBRID SEEDS" },
-            { id: "MACHINERY_RENTALS", label: "MACHINERY RENTALS" },
-            { id: "LIVE_MANDI", label: "ALL-INDIA LIVE MANDI" },
-            { id: "INDUSTRY_B2B", label: "INDUSTRY B2B" },
-            { id: "ORGANIC_KHAD", label: "ORGANIC KHAD" }
-          ].map((tab) => (
-            <div 
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              style={{
-                paddingBottom: "12px",
-                cursor: "pointer",
-                color: activeTab === tab.id ? "#22c55e" : "#9ca3af",
-                borderBottom: activeTab === tab.id ? "3px solid #22c55e" : "none",
-                whiteSpace: "nowrap"
-              }}
+            { id: 'all', label: 'All Feeds' },
+            { id: 'crops', label: 'Crop Market' },
+            { id: 'f2f-seeds', label: 'Farmer-to-Farmer Seed' },
+            { id: 'rentals', label: 'Machine Rental' },
+            { id: 'b2b', label: 'B2B Bulk Khad' },
+            { id: 'mandi', label: 'Mandi Rates' },
+            { id: 'ai-doctor', label: 'AI Agri Doctor' }
+          ].map(tab => (
+            <button 
+              key={tab.id} 
+              onClick={() => {
+                if(tab.id === 'ai-doctor') setAiDoctorModal(true);
+                else setActiveTab(tab.id as Tab);
+              }} 
+              className={activeTab === tab.id ? 'text-emerald-400 font-black border-b-2 border-emerald-400 pb-1' : 'hover:text-white transition'}
             >
               {tab.label}
-            </div>
+            </button>
           ))}
         </div>
       </header>
 
-      {/* 2. MAIN BODY SECTION */}
-      <main style={{ maxWidth: "1280px", margin: "24px auto", padding: "0 16px" }}>
+      {/* ================= 2. MAIN E-COMMERCE PRODUCTS & FEED ================= */}
+      <main className="w-full">
 
-        {/* CATEGORY 1: CROP & HYBRID SEEDS MARKET FEED */}
-        {(activeTab === "ALL" || activeTab === "CROP_MARKET" || activeTab === "HYBRID_SEEDS") && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-              <div>
-                <h2 style={{ fontSize: "16px", color: "#4b5563", margin: 0, fontWeight: "800", letterSpacing: "0.5px" }}>
-                  {activeTab === "HYBRID_SEEDS" ? "CERTIFIED SEEDS CATALOG" : "CROPS PRODUCTS & VEGETABLES"}
-                </h2>
-                <span style={{ fontSize: "12px", color: "#6b7280" }}>Filter Active: {selectedCity}</span>
+        {/* Hero Offer Banner */}
+        {activeTab === 'all' && (
+          <div className="w-full bg-slate-950 text-white relative overflow-hidden py-10 px-6 lg:px-16 border-b border-slate-800 flex flex-col md:flex-row items-center justify-between">
+            <div className="z-10 max-w-xl space-y-4 text-left">
+              <span className="bg-emerald-500 text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">Farmer Direct Hub</span>
+              <h1 className="text-3xl md:text-5xl font-black italic tracking-tight leading-none uppercase">DIRECT SEEDS, RENTALS & <span className="text-emerald-400">AI AGRI DOCTOR</span></h1>
+              <p className="text-xs md:text-sm text-slate-300">Farmer-to-Farmer seed exchange, hourly tractor/harvester booking with secure escrow payments.</p>
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setActiveTab('f2f-seeds')} className="bg-emerald-500 text-black font-extrabold px-6 py-2.5 rounded-full text-xs hover:bg-emerald-400 transition flex items-center gap-2">
+                  BUY F2F SEEDS <ArrowRight size={15} />
+                </button>
+                <button onClick={() => setAiDoctorModal(true)} className="bg-slate-800 text-white font-extrabold px-5 py-2.5 rounded-full text-xs hover:bg-slate-700 transition border border-slate-700 flex items-center gap-2">
+                  <Sprout size={15} /> SCAN PLANT DISEASE
+                </button>
               </div>
-              <span style={{ fontSize: "12px", color: "#6b7280" }}>{filteredProducts.length} Listings Available</span>
             </div>
+            <div className="mt-6 md:mt-0 relative w-full md:w-1/2 h-48 md:h-64 rounded-2xl overflow-hidden border border-slate-800 shadow-2xl">
+              <img src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80" alt="Agri" className="w-full h-full object-cover opacity-80" />
+            </div>
+          </div>
+        )}
 
-            {/* Responsive Card Grid */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "20px" }}>
-              {filteredProducts.map((prod) => (
-                <div key={prod.id} style={{ backgroundColor: "#fff", borderRadius: "12px", overflow: "hidden", border: "1px solid #e5e7eb", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", position: "relative" }}>
-                  
-                  {/* Source Badge */}
-                  <div style={{ position: "absolute", top: "10px", left: "10px", backgroundColor: "rgba(0,0,0,0.6)", color: "#fff", fontSize: "10px", padding: "3px 8px", borderRadius: "4px", fontWeight: "bold" }}>
-                    📍 {prod.source}
-                  </div>
+        {/* Product Cards Grid */}
+        <div className="w-full px-4 lg:px-10 py-6 space-y-6">
+          <div className="flex justify-between items-center border-b border-slate-200 pb-3">
+            <div>
+              <h2 className="text-xl font-black text-slate-950 uppercase tracking-tight">{activeTab} LISTINGS</h2>
+              <p className="text-xs text-slate-500 font-medium">Direct listings from MP Farmers & Local APMC Mandis</p>
+            </div>
+            <span className="text-xs text-slate-500 font-bold">{filteredListings.length} Products Found</span>
+          </div>
 
-                  <img src={prod.image} alt={prod.name} style={{ width: "100%", height: "180px", objectFit: "cover" }} />
-
-                  <div style={{ padding: "16px" }}>
-                    {prod.verified && (
-                      <span style={{ backgroundColor: "#22c55e", color: "#fff", fontSize: "9px", padding: "2px 6px", borderRadius: "3px", fontWeight: "bold" }}>
-                        ✓ VERIFIED SELLER
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredListings.map((item) => (
+              <div key={item.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
+                <div>
+                  <div className="relative h-52 bg-slate-100 overflow-hidden">
+                    <img src={item.image} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition duration-500" />
+                    
+                    {item.isFarmerDirect && (
+                      <span className="absolute top-3 left-3 bg-emerald-600 text-white text-[9px] font-black px-2 py-0.5 rounded flex items-center gap-1 uppercase tracking-wider">
+                        <Sprout size={11} /> FARMER-TO-FARMER SEED
                       </span>
                     )}
 
-                    <div style={{ fontSize: "10px", color: "#6b7280", fontWeight: "bold", marginTop: "8px" }}>
-                      {prod.type} • Variety: {prod.variety}
+                    <button 
+                      onClick={() => toggleWishlist(item.id)}
+                      className="absolute top-3 right-3 p-1.5 bg-white/80 rounded-full text-slate-700 hover:text-rose-500 transition shadow"
+                    >
+                      <Heart size={18} className={wishlist.includes(item.id) ? "fill-rose-500 text-rose-500" : ""} />
+                    </button>
+
+                    {item.aiVerified && (
+                      <span className="absolute bottom-3 left-3 bg-slate-950/80 backdrop-blur-md text-white text-[9px] font-black px-2.5 py-1 rounded flex items-center gap-1 uppercase">
+                        <ShieldCheck size={12} className="text-emerald-400" /> AI QUALITY VERIFIED
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-2">
+                    <span className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">{item.category}</span>
+                    <h3 className="font-extrabold text-slate-900 text-sm line-clamp-2 leading-snug group-hover:text-emerald-600 transition">{item.title}</h3>
+                    
+                    <div className="flex items-baseline gap-1 pt-1">
+                      <span className="text-2xl font-black text-slate-950">₹{item.price}</span>
+                      <span className="text-xs text-slate-500 font-bold">/ {item.unit}</span>
                     </div>
 
-                    <h3 style={{ fontSize: "14px", fontWeight: "800", margin: "4px 0", height: "36px", overflow: "hidden" }}>
-                      {prod.name}
-                    </h3>
+                    <p className="text-xs text-slate-500 flex items-center gap-1 font-medium"><MapPin size={12} className="text-slate-400" /> {item.location}</p>
 
-                    <div style={{ fontSize: "18px", fontWeight: "900", color: "#111827", margin: "6px 0" }}>
-                      ₹{prod.price} <span style={{ fontSize: "12px", color: "#6b7280", fontWeight: "normal" }}>/ {prod.unit}</span>
-                    </div>
-
-                    <div style={{ fontSize: "11px", color: "#d97706", fontWeight: "bold", marginBottom: "6px" }}>
-                      Min Bulk Order: {prod.minOrder}
-                    </div>
-
-                    <div style={{ fontSize: "11px", color: "#6b7280", marginBottom: "12px" }}>
-                      📍 Location: <strong>{prod.location}</strong>
-                    </div>
-
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "11px", color: "#374151", borderTop: "1px solid #f3f4f6", paddingTop: "8px", marginBottom: "12px" }}>
-                      <span>Seller: <strong>{prod.sellerName}</strong></span>
-                      <span style={{ color: "#f59e0b", fontWeight: "bold" }}>★ {prod.sellerRating}</span>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
-                      <button 
-                        onClick={() => addToCart(prod)}
-                        style={{ backgroundColor: "#f3f4f6", color: "#374151", border: "1px solid #d1d5db", padding: "8px", borderRadius: "6px", fontWeight: "bold", fontSize: "11px", cursor: "pointer" }}
-                      >
-                        + CART
-                      </button>
-                      <button 
-                        onClick={() => { addToCart(prod); setIsCheckoutOpen(true); }}
-                        style={{ backgroundColor: "#22c55e", color: "#fff", border: "none", padding: "8px", borderRadius: "6px", fontWeight: "bold", fontSize: "11px", cursor: "pointer" }}
-                      >
-                        BUY NOW
-                      </button>
-                    </div>
+                    {item.rentalSlot && <p className="text-[11px] text-blue-800 bg-blue-50 px-2 py-1 rounded font-bold border border-blue-200">Slot: {item.rentalSlot}</p>}
+                    {item.minOrder && <p className="text-[11px] text-amber-800 bg-amber-50 px-2 py-1 rounded font-bold border border-amber-200">Min Order: {item.minOrder}</p>}
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
 
-        {/* CATEGORY 2: ALL-INDIA LIVE MANDI RATES WITH DIRECT SEARCH */}
-        {activeTab === "LIVE_MANDI" && (
-          <div>
-            <div style={{ backgroundColor: "#fff", padding: "20px", borderRadius: "12px", border: "1px solid #e5e7eb", marginBottom: "20px" }}>
-              <h2 style={{ fontSize: "18px", margin: "0 0 10px 0" }}>📊 All-India Live Mandi Rate Aggregator</h2>
-              <p style={{ fontSize: "13px", color: "#6b7280", margin: "0 0 16px 0" }}>
-                Select state or search any Mandi/District directly to get live crop price updates.
-              </p>
+                <div className="p-4 border-t border-slate-100 bg-slate-50 space-y-3">
+                  <div className="flex justify-between items-center text-xs text-slate-600 font-bold">
+                    <span className="truncate">Seller: {item.sellerName}</span>
+                    <span className="bg-white px-2 py-0.5 rounded border text-[10px] font-black">★ {item.sellerRating.toFixed(1)}</span>
+                  </div>
 
-              {/* State Filter Buttons */}
-              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "16px" }}>
-                {INDIAN_STATES.map((st) => (
-                  <button
-                    key={st}
-                    onClick={() => setMandiState(st)}
-                    style={{
-                      backgroundColor: mandiState === st ? "#14281d" : "#e5e7eb",
-                      color: mandiState === st ? "#fff" : "#374151",
-                      border: "none",
-                      padding: "8px 16px",
-                      borderRadius: "20px",
-                      fontSize: "12px",
-                      fontWeight: "bold",
-                      cursor: "pointer"
-                    }}
-                  >
-                    {st}
-                  </button>
-                ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    <a 
+                      href={`tel:${item.phone}`}
+                      className="bg-slate-200 hover:bg-slate-300 text-slate-900 font-extrabold text-xs py-2 rounded-xl flex justify-center items-center gap-1 transition"
+                    >
+                      <Phone size={13} /> Call Seller
+                    </a>
+                    <button 
+                      onClick={() => {
+                        setCart(prev => [...prev, item]);
+                        setCartModalOpen(true);
+                      }}
+                      className="bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs py-2 rounded-xl flex justify-center items-center gap-1 shadow-sm transition"
+                    >
+                      <ShoppingBag size={13} /> Buy / Book
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              {/* Mandi Direct Search Input */}
-              <input 
-                type="text" 
-                placeholder="🔍 Search Mandi Name or District (e.g., Indore, Lasalgaon, Kota)..."
-                value={mandiSearchQuery}
-                onChange={(e) => setMandiSearchQuery(e.target.value)}
-                style={{ width: "100%", padding: "10px 14px", borderRadius: "6px", border: "1px solid #d1d5db", fontSize: "13px" }}
-              />
-            </div>
-
-            {/* Mandi Table Display */}
-            {ALL_INDIA_MANDIS
-              .filter((st) => st.state === mandiState)
-              .map((stData) => (
-                <div key={stData.state}>
-                  {stData.mandis
-                    .filter((m) => m.name.toLowerCase().includes(mandiSearchQuery.toLowerCase()) || m.district.toLowerCase().includes(mandiSearchQuery.toLowerCase()))
-                    .map((mandi, idx) => (
-                      <div key={idx} style={{ backgroundColor: "#fff", padding: "16px", borderRadius: "12px", marginBottom: "16px", border: "1px solid #e5e7eb" }}>
-                        <h3 style={{ margin: "0 0 12px 0", color: "#14281d", fontSize: "16px" }}>🏛️ {mandi.name} ({mandi.district})</h3>
-                        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px" }}>
-                          <thead>
-                            <tr style={{ borderBottom: "2px solid #e5e7eb", textAlign: "left", color: "#6b7280" }}>
-                              <th style={{ padding: "8px" }}>Crop / Commodity</th>
-                              <th style={{ padding: "8px" }}>Category</th>
-                              <th style={{ padding: "8px" }}>Current Mandi Rate</th>
-                              <th style={{ padding: "8px" }}>24h Price Change</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {mandi.rates.map((rateItem, rIdx) => (
-                              <tr key={rIdx} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                                <td style={{ padding: "10px 8px", fontWeight: "bold" }}>{rateItem.crop}</td>
-                                <td style={{ padding: "10px 8px" }}>{rateItem.category}</td>
-                                <td style={{ padding: "10px 8px", color: "#16a34a", fontWeight: "bold" }}>{rateItem.rate}</td>
-                                <td style={{ padding: "10px 8px", color: rateItem.trend === "up" ? "#16a34a" : rateItem.trend === "down" ? "#dc2626" : "#6b7280", fontWeight: "bold" }}>
-                                  {rateItem.change}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ))}
-                </div>
-              ))}
+            ))}
           </div>
-        )}
-
-        {/* CATEGORY 3: MACHINERY RENTALS & SLOT BOOKING */}
-        {activeTab === "MACHINERY_RENTALS" && (
-          <div>
-            <h2 style={{ fontSize: "18px", margin: "0 0 16px 0" }}>🚜 Agricultural Machinery Rentals with Slot Booking</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" }}>
-              {MACHINERY_RENTALS_DATA.map((mac) => (
-                <div key={mac.id} style={{ backgroundColor: "#fff", borderRadius: "12px", border: "1px solid #e5e7eb", padding: "16px" }}>
-                  <img src={mac.image} alt={mac.name} style={{ width: "100%", height: "160px", objectFit: "cover", borderRadius: "8px" }} />
-                  <h3 style={{ fontSize: "15px", margin: "10px 0 4px 0" }}>{mac.name}</h3>
-                  <div style={{ color: "#16a34a", fontSize: "18px", fontWeight: "bold" }}>₹{mac.rate} <small style={{ fontSize: "12px", color: "#6b7280" }}>/ {mac.unit}</small></div>
-                  <div style={{ fontSize: "12px", color: "#6b7280", margin: "8px 0" }}>
-                    📍 Location: {mac.location}<br />
-                    🏢 Owner: <strong>{mac.sellerName}</strong>
-                  </div>
-                  <button 
-                    onClick={() => setSelectedRentalMachine(mac)}
-                    style={{ width: "100%", backgroundColor: "#f59e0b", color: "#fff", border: "none", padding: "10px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", marginTop: "8px" }}
-                  >
-                    📅 Book Rental Slot
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* CATEGORY 4: INDUSTRY B2B DIRECTORY */}
-        {activeTab === "INDUSTRY_B2B" && (
-          <div>
-            <h2 style={{ fontSize: "18px", margin: "0 0 16px 0" }}>🏭 MP Verified Wholesale Sellers (For Hotels, Canteens & Factories)</h2>
-            <div style={{ backgroundColor: "#fff", borderRadius: "12px", overflow: "hidden", border: "1px solid #e5e7eb" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "13px", textAlign: "left" }}>
-                <thead style={{ backgroundColor: "#14281d", color: "#fff" }}>
-                  <tr>
-                    <th style={{ padding: "12px" }}>Supplier Name</th>
-                    <th style={{ padding: "12px" }}>City</th>
-                    <th style={{ padding: "12px" }}>Target Audience</th>
-                    <th style={{ padding: "12px" }}>Min Bulk Order</th>
-                    <th style={{ padding: "12px" }}>Direct Phone Contact</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {B2B_WHOLESALE_DIRECTORY.map((s, idx) => (
-                    <tr key={idx} style={{ borderBottom: "1px solid #f3f4f6" }}>
-                      <td style={{ padding: "12px", fontWeight: "bold" }}>{s.name}<br/><small style={{ color: "#6b7280", fontWeight: "normal" }}>Owner: {s.owner}</small></td>
-                      <td style={{ padding: "12px" }}>📍 {s.city}</td>
-                      <td style={{ padding: "12px" }}>{s.target}</td>
-                      <td style={{ padding: "12px", color: "#dc2626", fontWeight: "bold" }}>{s.minQty}</td>
-                      <td style={{ padding: "12px" }}>
-                        <a href={`tel:${s.phone}`} style={{ backgroundColor: "#e8f5e9", color: "#16a34a", padding: "6px 10px", borderRadius: "4px", textDecoration: "none", fontWeight: "bold" }}>📞 {s.phone}</a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* CATEGORY 5: ORGANIC KHAD & FERTILIZERS */}
-        {activeTab === "ORGANIC_KHAD" && (
-          <div>
-            <h2 style={{ fontSize: "18px", margin: "0 0 16px 0" }}>🌱 Natural & Organic Khad Wholesale Catalog</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: "20px" }}>
-              {ORGANIC_KHAD_DATA.map((k) => (
-                <div key={k.id} style={{ backgroundColor: "#fff", padding: "16px", borderRadius: "12px", border: "1px solid #e5e7eb" }}>
-                  <h3 style={{ margin: "0 0 8px 0", fontSize: "16px", color: "#14281d" }}>{k.name}</h3>
-                  <div style={{ fontSize: "13px", color: "#374151" }}>Packaging: <strong>{k.packaging}</strong></div>
-                  <div style={{ fontSize: "18px", fontWeight: "bold", color: "#16a34a", margin: "8px 0" }}>
-                    ₹{k.bagPrice} <small style={{ fontSize: "12px", color: "#6b7280" }}>(Bulk Rate: ₹{k.tonPrice} / Ton)</small>
-                  </div>
-                  <div style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px" }}>
-                    📍 Location: {k.location}<br/>
-                    🏢 Supplier: {k.sellerName}
-                  </div>
-                  <a href={`tel:${k.sellerPhone}`} style={{ display: "block", textAlign: "center", backgroundColor: "#16a34a", color: "#fff", textDecoration: "none", padding: "8px", borderRadius: "6px", fontWeight: "bold" }}>
-                    📞 Call Supplier: {k.sellerPhone}
-                  </a>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
+        </div>
       </main>
 
-      {/* 3. CART SIDEBAR OVERLAY */}
-      {isCartOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 200, display: "flex", justifyContent: "flex-end" }}>
-          <div style={{ backgroundColor: "#fff", width: "100%", maxWidth: "400px", height: "100%", padding: "20px", display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderBottom: "1px solid #e5e7eb", paddingBottom: "12px" }}>
-                <h3 style={{ margin: 0 }}>🛒 Bulk Shopping Cart</h3>
-                <button onClick={() => setIsCartOpen(false)} style={{ border: "none", background: "none", fontSize: "18px", cursor: "pointer" }}>✕</button>
-              </div>
+      {/* ================= 3. AI AGRI DOCTOR & DISEASE DIAGNOSIS MODAL ================= */}
+      {aiDoctorModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 text-white w-full max-w-xl rounded-3xl p-6 border border-slate-800 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button onClick={() => setAiDoctorModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white"><X size={20} /></button>
+            
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-black uppercase text-emerald-400 flex justify-center items-center gap-2"><Sprout size={20} /> AI Plant Doctor & Fertilizer Scan</h3>
+              <p className="text-xs text-slate-400">Patto ki photo upload karein - AI Bimaari, Spray aur Fertilizer dose batayega</p>
+            </div>
 
-              {cart.length === 0 ? (
-                <p style={{ textAlign: "center", color: "#6b7280", marginTop: "40px" }}>Aapka Cart khaali hai!</p>
+            <div className="relative h-56 bg-slate-950 rounded-2xl border-2 border-dashed border-emerald-500/40 flex flex-col items-center justify-center overflow-hidden">
+              {isScanning ? (
+                <div className="space-y-3 text-center">
+                  <RefreshCw className="animate-spin text-emerald-400 mx-auto" size={36} />
+                  <p className="text-xs font-bold text-emerald-300">Analyzing leaf pathology & fungal pattern...</p>
+                </div>
+              ) : doctorDiagnosis ? (
+                <div className="p-4 space-y-2 text-left w-full">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                    <span className="text-xs font-black text-emerald-400 uppercase">{doctorDiagnosis.disease}</span>
+                    <span className="text-[10px] bg-emerald-950 text-emerald-300 px-2 py-0.5 rounded border border-emerald-700">{doctorDiagnosis.confidence}</span>
+                  </div>
+                  <p className="text-xs text-slate-300"><b>Symptoms:</b> {doctorDiagnosis.symptoms}</p>
+                  <p className="text-xs text-amber-300"><b>Chemical Spray:</b> {doctorDiagnosis.chemicalTreatment}</p>
+                  <p className="text-xs text-emerald-300"><b>Organic Solution:</b> {doctorDiagnosis.organicTreatment}</p>
+                  <p className="text-xs text-blue-300"><b>Fertilizer Dose:</b> {doctorDiagnosis.fertilizerAdvice}</p>
+                </div>
               ) : (
-                <div style={{ marginTop: "16px", maxHeight: "60vh", overflowY: "auto" }}>
-                  {cart.map((item) => (
-                    <div key={item.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #f3f4f6" }}>
-                      <div>
-                        <div style={{ fontWeight: "bold", fontSize: "13px" }}>{item.name}</div>
-                        <div style={{ fontSize: "12px", color: "#6b7280" }}>₹{item.price} × {item.qty}</div>
-                      </div>
-                      <button onClick={() => removeFromCart(item.id)} style={{ color: "#dc2626", border: "none", background: "none", cursor: "pointer", fontWeight: "bold" }}>Remove</button>
-                    </div>
-                  ))}
+                <div className="text-center space-y-2">
+                  <Camera size={44} className="text-slate-600 mx-auto" />
+                  <p className="text-xs text-slate-400 font-medium">Click button below to test Plant Leaf Scan</p>
                 </div>
               )}
             </div>
 
-            {cart.length > 0 && (
-              <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: "16px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "16px", fontWeight: "bold", marginBottom: "16px" }}>
-                  <span>Total Amount:</span>
-                  <span style={{ color: "#16a34a" }}>₹{cartTotal}</span>
+            <button 
+              onClick={startPlantDoctorDiagnosis}
+              disabled={isScanning}
+              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-3.5 rounded-2xl text-xs uppercase transition shadow-lg"
+            >
+              {isScanning ? 'Analyzing Plant Disease...' : 'Scan Leaf & Get Solution'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= 4. CHECKOUT & MULTI-MODE PAYMENT SYSTEM ================= */}
+      {cartModalOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-end z-50">
+          <div className="bg-white text-slate-900 h-full w-full max-w-md p-6 flex flex-col justify-between shadow-2xl border-l">
+            <div>
+              <div className="flex justify-between items-center border-b pb-4">
+                <h3 className="font-black text-lg uppercase flex items-center gap-2"><ShoppingBag size={20} /> Checkout ({cart.length} Items)</h3>
+                <X size={22} onClick={() => { setCartModalOpen(false); setCheckoutStep('cart'); }} className="cursor-pointer text-slate-400 hover:text-black" />
+              </div>
+
+              {checkoutStep === 'cart' && (
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pt-4 pr-1">
+                  {cart.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-3 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                      <img src={item.image} alt={item.title} className="w-16 h-16 object-cover rounded-xl" />
+                      <div className="flex-1">
+                        <p className="font-extrabold text-xs text-slate-900 line-clamp-1">{item.title}</p>
+                        <p className="text-xs text-slate-500">{item.location}</p>
+                        <p className="text-sm font-black text-slate-950 pt-1">₹{item.price} / {item.unit}</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <button 
-                  onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}
-                  style={{ width: "100%", backgroundColor: "#22c55e", color: "#fff", border: "none", padding: "12px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
-                >
-                  Proceed to Payment Checkout
-                </button>
+              )}
+
+              {checkoutStep === 'payment' && (
+                <div className="space-y-4 pt-4">
+                  <p className="text-xs font-bold text-slate-600">Select Payment Method:</p>
+                  
+                  <div 
+                    onClick={() => setPaymentMethod('upi')} 
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer ${paymentMethod === 'upi' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <CreditCard size={20} className="text-emerald-600" />
+                      <div>
+                        <p className="font-extrabold text-xs">UPI Payment (PhonePe / GPay)</p>
+                        <p className="text-[10px] text-slate-500">Instant direct transfer</p>
+                      </div>
+                    </div>
+                    {paymentMethod === 'upi' && <Check size={18} className="text-emerald-600" />}
+                  </div>
+
+                  <div 
+                    onClick={() => setPaymentMethod('escrow')} 
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer ${paymentMethod === 'escrow' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck size={20} className="text-emerald-600" />
+                      <div>
+                        <p className="font-extrabold text-xs">Rental Escrow Guard</p>
+                        <p className="text-[10px] text-slate-500">Payment holds till machine work finishes</p>
+                      </div>
+                    </div>
+                    {paymentMethod === 'escrow' && <Check size={18} className="text-emerald-600" />}
+                  </div>
+
+                  <div 
+                    onClick={() => setPaymentMethod('cod')} 
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between cursor-pointer ${paymentMethod === 'cod' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Wallet size={20} className="text-slate-700" />
+                      <div>
+                        <p className="font-extrabold text-xs">Mandi Token Cash on Delivery</p>
+                        <p className="text-[10px] text-slate-500">Pay cash upon delivery at Mandi Yard</p>
+                      </div>
+                    </div>
+                    {paymentMethod === 'cod' && <Check size={18} className="text-emerald-600" />}
+                  </div>
+                </div>
+              )}
+
+              {checkoutStep === 'success' && (
+                <div className="py-12 text-center space-y-3">
+                  <CheckCircle2 size={54} className="text-emerald-500 mx-auto" />
+                  <h4 className="text-xl font-black">Order & Booking Confirmed!</h4>
+                  <p className="text-xs text-slate-500">Seller details and Mandi Pass sent to your mobile number.</p>
+                </div>
+              )}
+            </div>
+
+            {checkoutStep !== 'success' && (
+              <div className="border-t pt-4 space-y-4">
+                <div className="flex justify-between font-black text-lg text-slate-950">
+                  <span>Total Amount:</span>
+                  <span className="text-emerald-700">₹{cart.reduce((acc, x) => acc + x.price, 0)}</span>
+                </div>
+
+                {checkoutStep === 'cart' ? (
+                  <button 
+                    onClick={() => setCheckoutStep('payment')}
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-3.5 rounded-2xl text-xs uppercase shadow-md transition"
+                  >
+                    Select Payment Method
+                  </button>
+                ) : (
+                  <button 
+                    onClick={() => setCheckoutStep('success')}
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black py-3.5 rounded-2xl text-xs uppercase shadow-md transition"
+                  >
+                    Confirm & Pay Now
+                  </button>
+                )}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* 4. PAYMENT CHECKOUT MODAL */}
-      {isCheckoutOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <div style={{ backgroundColor: "#fff", padding: "24px", borderRadius: "12px", maxWidth: "450px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 12px 0" }}>💳 Secure B2B Payment Gateway</h3>
-            <div style={{ fontSize: "14px", marginBottom: "16px", color: "#374151" }}>Total Payable: <strong style={{ color: "#16a34a" }}>₹{cartTotal}</strong></div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ fontSize: "12px", fontWeight: "bold", display: "block", marginBottom: "6px" }}>Select Payment Mode:</label>
-              {["UPI (GPay / PhonePe / Paytm)", "Direct Mandi Bank Transfer (NEFT/RTGS)", "Cash on Delivery (Mandi Token Amount)"].map((mode) => (
-                <div key={mode} style={{ marginBottom: "8px" }}>
-                  <input 
-                    type="radio" 
-                    id={mode} 
-                    name="payMode" 
-                    checked={paymentMethod === mode} 
-                    onChange={() => setPaymentMethod(mode)} 
-                  />
-                  <label htmlFor={mode} style={{ fontSize: "13px", marginLeft: "6px" }}>{mode}</label>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-              <button onClick={() => setIsCheckoutOpen(false)} style={{ padding: "8px 14px", border: "none", borderRadius: "6px", cursor: "pointer" }}>Cancel</button>
-              <button 
-                onClick={() => {
-                  alert(`Payment Successful via ${paymentMethod}! Order confirmation SMS seller ko bhej diya gaya hai.`);
-                  setCart([]);
-                  setIsCheckoutOpen(false);
-                }}
-                style={{ backgroundColor: "#16a34a", color: "#fff", border: "none", padding: "10px 20px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
-              >
-                Pay & Confirm Order
-              </button>
-            </div>
+      {/* ================= 5. FLOATING AI CHAT ASSISTANT ================= */}
+      {chatModalOpen && (
+        <div className="fixed bottom-20 right-4 sm:right-10 w-96 max-w-[90vw] bg-slate-950 text-white rounded-3xl border border-slate-800 shadow-2xl z-50 overflow-hidden flex flex-col h-[450px]">
+          <div className="bg-slate-900 p-4 border-b border-slate-800 flex justify-between items-center">
+            <span className="font-black text-xs uppercase flex items-center gap-2 text-emerald-400"><Sparkles size={16} /> KisanSetu AI Voice/Chat</span>
+            <X size={18} onClick={() => setChatModalOpen(false)} className="cursor-pointer text-slate-400" />
           </div>
-        </div>
-      )}
 
-      {/* 5. RENTAL SLOT BOOKING MODAL */}
-      {selectedRentalMachine && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <div style={{ backgroundColor: "#fff", padding: "24px", borderRadius: "12px", maxWidth: "400px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 8px 0" }}>Confirm Rental Time Slot</h3>
-            <p style={{ fontSize: "13px", color: "#6b7280", margin: "0 0 16px 0" }}>{selectedRentalMachine.name}</p>
-
-            <label style={{ fontSize: "12px", fontWeight: "bold", display: "block", marginBottom: "6px" }}>Available Time Slots:</label>
-            <select 
-              value={chosenSlot} 
-              onChange={(e) => setChosenSlot(e.target.value)}
-              style={{ width: "100%", padding: "10px", borderRadius: "6px", border: "1px solid #d1d5db", marginBottom: "20px" }}
-            >
-              <option value="">-- Choose Slot --</option>
-              {selectedRentalMachine.slots.map((s, i) => <option key={i} value={s}>{s}</option>)}
-            </select>
-
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-              <button onClick={() => setSelectedRentalMachine(null)} style={{ padding: "8px 14px", border: "none", borderRadius: "6px", cursor: "pointer" }}>Cancel</button>
-              <button 
-                onClick={() => {
-                  if(!chosenSlot) return alert("Pehle slot chuniyega!");
-                  alert(`Booking Request for ${chosenSlot} sent to ${selectedRentalMachine.sellerName}! Owner confirmation ke liye call karega.`);
-                  setSelectedRentalMachine(null);
-                  setChosenSlot("");
-                }}
-                style={{ backgroundColor: "#16a34a", color: "#fff", padding: "8px 16px", border: "none", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
-              >
-                Confirm Slot Booking
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. SELL / RENT PRODUCT POPUP MODAL */}
-      {isSellModalOpen && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.6)", zIndex: 300, display: "flex", justifyContent: "center", alignItems: "center" }}>
-          <div style={{ backgroundColor: "#fff", padding: "24px", borderRadius: "12px", maxWidth: "480px", width: "100%" }}>
-            <h3 style={{ margin: "0 0 16px 0" }}>⊕ List Crop or Machine for Sale/Rent</h3>
-            <form onSubmit={handleCreateListing}>
-              <input 
-                type="text" 
-                placeholder="Crop / Machinery Title (e.g. Desi Tomato Batch)" 
-                value={newListing.name}
-                onChange={(e) => setNewListing({ ...newListing, name: e.target.value })}
-                style={{ width: "100%", padding: "8px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
-              />
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "10px" }}>
-                <input 
-                  type="number" 
-                  placeholder="Price (₹)" 
-                  value={newListing.price}
-                  onChange={(e) => setNewListing({ ...newListing, price: e.target.value })}
-                  style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}
-                />
-                <select 
-                  value={newListing.city}
-                  onChange={(e) => setNewListing({ ...newListing, city: e.target.value })}
-                  style={{ padding: "8px", borderRadius: "4px", border: "1px solid #ccc" }}
-                >
-                  {MP_CITIES.filter(c => c !== "All MP Cities").map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+          <div className="flex-1 p-4 overflow-y-auto space-y-3 text-xs">
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={`p-3 rounded-2xl max-w-[80%] ${msg.sender === 'user' ? 'bg-emerald-500 text-black ml-auto font-bold' : 'bg-slate-800 text-slate-200 border border-slate-700'}`}>
+                {msg.text}
               </div>
-              <input 
-                type="text" 
-                placeholder="Your / Enterprise Name" 
-                value={newListing.sellerName}
-                onChange={(e) => setNewListing({ ...newListing, sellerName: e.target.value })}
-                style={{ width: "100%", padding: "8px", marginBottom: "10px", borderRadius: "4px", border: "1px solid #ccc" }}
-              />
-              <input 
-                type="text" 
-                placeholder="Mobile Contact Number (+91)" 
-                value={newListing.sellerPhone}
-                onChange={(e) => setNewListing({ ...newListing, sellerPhone: e.target.value })}
-                style={{ width: "100%", padding: "8px", marginBottom: "16px", borderRadius: "4px", border: "1px solid #ccc" }}
-              />
+            ))}
+          </div>
 
-              <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
-                <button type="button" onClick={() => setIsSellModalOpen(false)} style={{ padding: "8px 14px", border: "none", borderRadius: "6px", cursor: "pointer" }}>Cancel</button>
-                <button type="submit" style={{ backgroundColor: "#22c55e", color: "#000", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}>Publish Listing</button>
-              </div>
-            </form>
+          <div className="p-3 border-t border-slate-800 flex gap-2">
+            <input 
+              type="text" 
+              placeholder="Ask fertilizer dose, mandi rate..." 
+              value={currentInput}
+              onChange={(e) => setCurrentInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+              className="flex-1 bg-slate-900 text-white text-xs px-3 py-2 rounded-xl outline-none border border-slate-800 focus:border-emerald-400"
+            />
+            <button onClick={handleSendMessage} className="bg-emerald-500 text-black p-2 rounded-xl"><Send size={16} /></button>
           </div>
         </div>
       )}
+
+      {/* Floating Chat Trigger */}
+      {!chatModalOpen && (
+        <button 
+          onClick={() => setChatModalOpen(true)}
+          className="fixed bottom-20 right-6 bg-emerald-500 text-black font-black p-3.5 rounded-full shadow-2xl z-40 hover:scale-110 transition flex items-center gap-2"
+        >
+          <Sparkles size={20} /> <span className="hidden sm:inline text-xs">Ask AI Expert</span>
+        </button>
+      )}
+
+      {/* ================= 6. MOBILE NAVIGATION BAR ================= */}
+      <nav className="fixed bottom-0 left-0 w-full lg:hidden bg-slate-950 text-slate-400 border-t border-slate-800 px-3 py-2 flex justify-around items-center z-40 text-[9px] font-bold uppercase">
+        {[
+          { id: 'all', label: 'Home', icon: <Sparkles size={18} /> },
+          { id: 'f2f-seeds', label: 'Seeds', icon: <Sprout size={18} /> },
+          { id: 'rentals', label: 'Rentals', icon: <Wallet size={18} /> },
+          { id: 'mandi', label: 'Mandi', icon: <TrendingUp size={18} /> }
+        ].map(nav => (
+          <button 
+            key={nav.id} 
+            onClick={() => setActiveTab(nav.id as Tab)} 
+            className={`flex flex-col items-center gap-1 ${activeTab === nav.id ? 'text-emerald-400 font-extrabold' : ''}`}
+          >
+            {nav.icon}
+            {nav.label}
+          </button>
+        ))}
+      </nav>
 
     </div>
   );
